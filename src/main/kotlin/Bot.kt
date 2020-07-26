@@ -1,11 +1,9 @@
 import com.github.ajalt.clikt.core.CliktCommand
+import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
-import com.github.ajalt.clikt.parameters.options.option
-import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
-import org.apache.logging.log4j.core.Logger
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
@@ -24,32 +22,66 @@ class Bot : ListenerAdapter() {
     }
 }
 
+class Main: CliktCommand() {
+    override fun run() = Unit
+}
+
 class Start: CliktCommand(help="Initializes a debate") {
     val name by argument()
     val msgStart : String? by argument(help = "Start of the message").optional()
 
     override fun run() {
-        echo("Hi! Name is $name and start is $msgStart")
+        transaction {
+            val debate = Debate.new {
+                name = this@Start.name
+                msgStart = this@Start.msgStart
+            }
+        }
     }
 }
 
 class End: CliktCommand(help = "Ends a debate") {
     val name by argument()
-    val msgStart : String? by argument().optional()
+    val msgEnd : String? by argument().optional()
 
     override fun run() {
+        transaction {
+            val debates = Debate.find {
+                Debates.name eq name
+            }
+            assert(debates.count() == 1L)
 
+            debates.first().apply {
+                isFinished = true
+                msgEnd = this@End.msgEnd
+            }
+
+        }
     }
 }
 
 class ArgumentCommand: CliktCommand() {
     val name by argument() // or id
     val person by argument()
-    val title by argument()
+    val category by argument()
     val text by argument()
+    val message by argument()
+    // reference ? -> lien ou livre etc
 
     override fun run() {
-        TODO("Not yet implemented")
+        transaction {
+            val debates = Debate.find {
+                Debates.name eq name
+            }
+            assert(debates.count() == 1L)
+
+            if(debates.count() > 0) {
+                val argument = Argument.new {
+                    person = this@ArgumentCommand.person
+                    text = this@ArgumentCommand.text
+                }
+            }
+        }
     }
 }
 
@@ -70,7 +102,7 @@ class List:CliktCommand() {
 }
 
 class Display:CliktCommand() {
-    val id by argument()
+    val name by argument()
 
     override fun run() {
         TODO("Not yet implemented")
@@ -85,25 +117,14 @@ fun main(args:Array<String>) {
     transaction {
         addLogger(StdOutSqlLogger)
         SchemaUtils.create(Debates, Arguments)
-
-
-
-        val debate = Debate.new {
-            name = "Test1"
-        }
-
-
-        val argument = Argument.new {
-            person = "Alex"
-            title = "Ceci est une courte description"
-            this.debate = debate
-        }
-
-        for (debate in Debate.all()) {
-            println("ici")
-            println("${debate.name} ${debate.messageId}")
-        }
     }
 
-    Start().main(args)
+    Main().subcommands(
+        Start(),
+        End(),
+        Modify(),
+        ArgumentCommand(),
+        List(),
+        Display()
+    ).main(args)
 }

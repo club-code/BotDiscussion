@@ -5,29 +5,50 @@ import org.jetbrains.exposed.dao.id.IntIdTable
 
 object Debates : IntIdTable() {
     val name = varchar("name", 64).index()
-    val messageId = varchar("message_id", 18).nullable()
+    val msgStart = varchar("msg_start_id", 18).nullable()
+    val msgEnd = varchar("msg_end_id", 18).nullable()
+    val isFinished = bool("ended").default(false)
+}
+
+object Categories : IntIdTable() {
+    val debate = reference("debate", Debates)
+    val name = varchar("name", 64).index()
 }
 
 object Arguments : IntIdTable() {
-    val debate = reference("debate", Debates)
     val person = varchar("person", 64)
-    val title = varchar("title", 64).nullable()
+    val category = reference("title", Categories)
+    val text = varchar("text", 500).nullable()
     val messageId = varchar("message_id", 18).nullable()
 }
+
+// Entities
 
 class Debate(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Debate>(Debates)
 
     var name by Debates.name
-    var messageId by Debates.messageId
-    val arguments by Argument referrersOn Arguments.debate
+    var msgStart by Debates.msgStart
+    var msgEnd by Debates.msgEnd
+    var isFinished by Debates.isFinished
+    val categories by Category referrersOn Categories.debate
+}
+
+class Category(id: EntityID<Int>) : IntEntity(id) {
+    companion object : IntEntityClass<Category>(Categories)
+
+    var debate by Debate referencedOn Categories.debate
+    var name by Categories.name
+    val arguments by Argument referrersOn Arguments.category
 }
 
 class Argument(id: EntityID<Int>) : IntEntity(id) {
     companion object : IntEntityClass<Argument>(Arguments)
 
-    var debate by Debate referencedOn Arguments.debate
     var person by Arguments.person
-    var title by Arguments.title
+    var category by Category referencedOn Arguments.category
+    var text by Arguments.text
     var messageId by Arguments.messageId
+    val debate
+        get() = category.debate
 }
