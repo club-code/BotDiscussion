@@ -5,6 +5,11 @@ import com.github.ajalt.clikt.parameters.options.option
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
+import org.apache.logging.log4j.core.Logger
+import org.jetbrains.exposed.sql.*
+import org.jetbrains.exposed.sql.transactions.TransactionManager
+import org.jetbrains.exposed.sql.transactions.transaction
+import java.sql.Connection
 
 //fun main(args: Array<String>) {
 //    JDABuilder
@@ -37,8 +42,8 @@ class End: CliktCommand(help = "Ends a debate") {
     }
 }
 
-class Argument: CliktCommand() {
-    val name by argument()
+class ArgumentCommand: CliktCommand() {
+    val name by argument() // or id
     val person by argument()
     val title by argument()
     val text by argument()
@@ -72,4 +77,33 @@ class Display:CliktCommand() {
     }
 }
 
-fun main(args:Array<String>) = Start().main(args)
+fun main(args:Array<String>) {
+    Database.connect("jdbc:sqlite:data/data.db", "org.sqlite.JDBC")
+    TransactionManager.manager.defaultIsolationLevel =
+        Connection.TRANSACTION_SERIALIZABLE
+
+    transaction {
+        addLogger(StdOutSqlLogger)
+        SchemaUtils.create(Debates, Arguments)
+
+
+
+        val debate = Debate.new {
+            name = "Test1"
+        }
+
+
+        val argument = Argument.new {
+            person = "Alex"
+            title = "Ceci est une courte description"
+            this.debate = debate
+        }
+
+        for (debate in Debate.all()) {
+            println("ici")
+            println("${debate.name} ${debate.messageId}")
+        }
+    }
+
+    Start().main(args)
+}
