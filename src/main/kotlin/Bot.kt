@@ -116,7 +116,7 @@ fun main(args:Array<String>) {
 
     transaction {
         addLogger(StdOutSqlLogger)
-        SchemaUtils.create(Debates, Arguments)
+        SchemaUtils.create(Debates, Categories, Arguments)
     }
 
     Main().subcommands(
