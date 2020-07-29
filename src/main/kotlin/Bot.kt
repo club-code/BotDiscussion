@@ -2,8 +2,10 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
+import io.github.cdimascio.dotenv.dotenv
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.MessageBuilder
 import net.dv8tion.jda.api.entities.Message
 import net.dv8tion.jda.api.entities.MessageChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
@@ -16,23 +18,35 @@ import java.util.*
 
 lateinit var jda: JDA
 
-//fun main(args: Array<String>) {
-//    jda = JDABuilder
-//        .createDefault(args[0])
-//        .addEventListeners(Bot())
-//        .build()
-//}
+fun main(args: Array<String>) {
+    Database.connect("jdbc:sqlite:data/data.db", "org.sqlite.JDBC")
+    TransactionManager.manager.defaultIsolationLevel =
+            Connection.TRANSACTION_SERIALIZABLE
+
+    transaction {
+        addLogger(StdOutSqlLogger)
+        SchemaUtils.create(Debates, Categories, Arguments)
+    }
+
+    val dotenv = dotenv()
+
+    jda = JDABuilder
+        .createDefault(dotenv["TOKEN"])
+        .addEventListeners(Bot())
+        .build()
+}
 
 class Bot : ListenerAdapter() {
     override fun onMessageReceived(event: MessageReceivedEvent) {
-        Main().subcommands(
-            Start(),
-            End(),
-            Modify(),
-            ArgumentCommand(),
-            List(),
-            Display()
-        ).main(event.message.contentRaw.split(' '))
+//        if (event.author )
+            Main().subcommands(MyWonderfulBot().subcommands(
+                Start(event),
+                End(event),
+                Modify(event),
+                ArgumentCommand(event),
+                List(event),
+                Display(event)
+            )).parse(event.message.contentRaw.split(' '))
     }
 }
 
@@ -40,7 +54,11 @@ class Main: CliktCommand() {
     override fun run() = Unit
 }
 
-class Start: CliktCommand(help="Initializes a debate") {
+class MyWonderfulBot: CliktCommand(name = "f!") {
+    override fun run() = Unit
+}
+
+class Start(val event: MessageReceivedEvent): CliktCommand(help="Initializes a debate") {
     val name by argument()
     val msgStart : String? by argument(help = "Start of the message").optional()
 
@@ -51,10 +69,11 @@ class Start: CliktCommand(help="Initializes a debate") {
                 msgStart = this@Start.msgStart
             }
         }
+        event.channel.sendMessage("Discussion $name Initialized").queue()
     }
 }
 
-class End: CliktCommand(help = "Ends a debate") {
+class End(val event: MessageReceivedEvent): CliktCommand(help = "Ends a debate") {
     val name by argument()
     val msgEnd : String? by argument().optional()
 
@@ -71,10 +90,11 @@ class End: CliktCommand(help = "Ends a debate") {
             }
 
         }
+        event.message.channel.sendMessage("Discussion $name ended").queue()
     }
 }
 
-class ArgumentCommand: CliktCommand() {
+class ArgumentCommand(val event: MessageReceivedEvent): CliktCommand() {
     val category by argument()
     val message by argument()
     // reference ? -> lien ou livre etc
@@ -90,25 +110,24 @@ class ArgumentCommand: CliktCommand() {
             val message = channel.retrieveMessageById(messageId).complete()
 
             transaction {
-                val debates = Category.find {
+                val categories = Category.find {
                     Categories.name eq category
                 }
-                assert(debates.count() == 1L)
 
-                if(debates.count() > 0) {
+                if(categories.count() > 0) {       //isn't it unuseful ?
                     val argument = Argument.new {
                         person = message.author.name
                         text = message.contentRaw
+                        category = categories.first()
                     }
                 }
             }
+            event.message.delete().queue()
         }
-
-
     }
 }
 
-class Modify:CliktCommand() {
+class Modify(val event: MessageReceivedEvent):CliktCommand() {
     val name by argument()
     val id by argument() //think about the way to call the argument
     val text by argument()
@@ -118,36 +137,23 @@ class Modify:CliktCommand() {
     }
 }
 
-class List:CliktCommand() {
+class List(val event: MessageReceivedEvent):CliktCommand() {
     override fun run() {
-        TODO("Not yet implemented")
+        event.message.channel.sendTyping().queue()
+        transaction {
+            val allDebates = Debate.all().map { it.name }
+
+            val myEmbed = MessageBuilder().append(allDebates.joinToString(separator = "\n") ).build()
+
+            event.message.channel.sendMessage(myEmbed).queue()
+        }
     }
 }
 
-class Display:CliktCommand() {
+class Display(val event: MessageReceivedEvent):CliktCommand() {
     val name by argument()
 
     override fun run() {
         TODO("Not yet implemented")
     }
-}
-
-fun main(args:Array<String>) {
-    Database.connect("jdbc:sqlite:data/data.db", "org.sqlite.JDBC")
-    TransactionManager.manager.defaultIsolationLevel =
-        Connection.TRANSACTION_SERIALIZABLE
-
-    transaction {
-        addLogger(StdOutSqlLogger)
-        SchemaUtils.create(Debates, Categories, Arguments)
-    }
-
-    Main().subcommands(
-        Start(),
-        End(),
-        Modify(),
-        ArgumentCommand(),
-        List(),
-        Display()
-    ).main(args)
 }

@@ -5,8 +5,8 @@ import org.jetbrains.exposed.dao.id.IntIdTable
 
 object Debates : IntIdTable() {
     val name = varchar("name", 64).index()
-    val msgStart = varchar("msg_start_id", 18).nullable()
-    val msgEnd = varchar("msg_end_id", 18).nullable()
+    val msgStart = varchar("msg_start_id", 200).nullable()
+    val msgEnd = varchar("msg_end_id", 200).nullable()
     val isFinished = bool("ended").default(false)
 }
 
@@ -19,7 +19,7 @@ object Arguments : IntIdTable() {
     val person = varchar("person", 64)
     val category = reference("title", Categories)
     val text = varchar("text", 500).nullable()
-    val messageId = varchar("message_id", 18).nullable()
+    val messageId = varchar("message_id", 200).nullable()
 }
 
 // Entities

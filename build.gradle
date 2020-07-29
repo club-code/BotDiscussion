@@ -15,6 +15,8 @@ dependencies {
     implementation "net.dv8tion:JDA:4.1.1_153"
     implementation "com.github.ajalt:clikt:2.7.1"
 
+    implementation 'io.github.cdimascio:java-dotenv:5.2.1'
+
     testImplementation "junit:junit:4.13"
 
     implementation "org.apache.logging.log4j:log4j-api:2.13.3"
