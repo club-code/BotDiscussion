@@ -2,15 +2,22 @@ import com.github.ajalt.clikt.core.CliktCommand
 import com.github.ajalt.clikt.core.subcommands
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
+import net.dv8tion.jda.api.JDA
+import net.dv8tion.jda.api.JDABuilder
+import net.dv8tion.jda.api.entities.Message
+import net.dv8tion.jda.api.entities.MessageChannel
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent
 import net.dv8tion.jda.api.hooks.ListenerAdapter
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.sql.Connection
+import java.util.*
+
+lateinit var jda: JDA
 
 //fun main(args: Array<String>) {
-//    JDABuilder
+//    jda = JDABuilder
 //        .createDefault(args[0])
 //        .addEventListeners(Bot())
 //        .build()
@@ -18,7 +25,14 @@ import java.sql.Connection
 
 class Bot : ListenerAdapter() {
     override fun onMessageReceived(event: MessageReceivedEvent) {
-
+        Main().subcommands(
+            Start(),
+            End(),
+            Modify(),
+            ArgumentCommand(),
+            List(),
+            Display()
+        ).main(event.message.contentRaw.split(' '))
     }
 }
 
@@ -61,27 +75,36 @@ class End: CliktCommand(help = "Ends a debate") {
 }
 
 class ArgumentCommand: CliktCommand() {
-    val name by argument() // or id
-    val person by argument()
     val category by argument()
-    val text by argument()
     val message by argument()
     // reference ? -> lien ou livre etc
 
     override fun run() {
-        transaction {
-            val debates = Debate.find {
-                Debates.name eq name
-            }
-            assert(debates.count() == 1L)
 
-            if(debates.count() > 0) {
-                val argument = Argument.new {
-                    person = this@ArgumentCommand.person
-                    text = this@ArgumentCommand.text
+        val m = Message.JUMP_URL_PATTERN.matcher(message)
+        val channelId = m.group("channel")
+        val messageId = m.group("message")
+
+        val channel = jda.getGuildChannelById(channelId)
+        if(channel is MessageChannel) {
+            val message = channel.retrieveMessageById(messageId).complete()
+
+            transaction {
+                val debates = Category.find {
+                    Categories.name eq category
+                }
+                assert(debates.count() == 1L)
+
+                if(debates.count() > 0) {
+                    val argument = Argument.new {
+                        person = message.author.name
+                        text = message.contentRaw
+                    }
                 }
             }
         }
+
+
     }
 }
 
