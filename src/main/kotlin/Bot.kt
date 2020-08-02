@@ -39,14 +39,22 @@ fun main(args: Array<String>) {
 class Bot : ListenerAdapter() {
     override fun onMessageReceived(event: MessageReceivedEvent) {
 //        if (event.author )
-            Main().subcommands(MyWonderfulBot().subcommands(
-                Start(event),
-                End(event),
-                Modify(event),
-                ArgumentCommand(event),
-                List(event),
-                Display(event)
+        try {
+            Main().subcommands(AWonderfulBot().subcommands(
+                    Start(event),
+                    End(event),
+                    Modify(event),
+                    ArgumentCommand(event),
+                    List(event),
+                    Display(event)
             )).parse(event.message.contentRaw.split(' '))
+        }
+        catch (e: Exception) {
+            val keyword = dotenv()["KEYWORD"]
+            if (event.message.contentRaw.contains(regex = "^$keyword".toRegex()) and ! event.author.isBot) {
+                event.channel.sendMessage("\uD83E\uDD16 Bip boop, boop beep\n Are we speaking the same language ?").queue()
+            }
+        }
     }
 }
 
@@ -54,7 +62,7 @@ class Main: CliktCommand() {
     override fun run() = Unit
 }
 
-class MyWonderfulBot: CliktCommand(name = "f!") {
+class AWonderfulBot: CliktCommand(name = dotenv()["KEYWORD"]) {
     override fun run() = Unit
 }
 
