@@ -32,6 +32,8 @@ dependencies {
     implementation 'com.github.javafaker:javafaker:1.0.2'
 }
 
+sourceCompatibility = 1.8
+
 compileKotlin {
     kotlinOptions.jvmTarget = "1.8"
 }

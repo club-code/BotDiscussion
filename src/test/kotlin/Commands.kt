@@ -69,7 +69,7 @@ class TestCommands {
 
     @Test
     fun startCommandTest() {
-        Start().main(arrayOf("MessageStart", "123456"))
+        Start(null).main(arrayOf("MessageStart", "123456"))
         transaction {
             val debates = Debate.find {
                 Debates.name eq "MessageStart"
@@ -84,7 +84,7 @@ class TestCommands {
 
     @Test
     fun endCommandTest() {
-        End().main(arrayOf("Test1", "789"))
+        End(null).main(arrayOf("Test1", "789"))
         transaction {
             val debates = Debate.find {
                 Debates.name eq "Test1"
