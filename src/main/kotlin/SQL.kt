@@ -34,7 +34,7 @@ class Debate(id: EntityID<Int>) : IntEntity(id) {
     val categories by Category referrersOn Categories.debate
 }
 
-class Category(id: EntityID<Int>) : IntEntity(id) {
+class Category(id: EntityID<Int>) : IntEntity(id) { //todo: rename Category to Topic ? +find abetter ame for argument
     companion object : IntEntityClass<Category>(Categories)
 
     var debate by Debate referencedOn Categories.debate

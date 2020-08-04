@@ -2,6 +2,7 @@ import com.github.ajalt.clikt.core.*
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
 import io.github.cdimascio.dotenv.dotenv
+import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDA
 import net.dv8tion.jda.api.JDABuilder
 import net.dv8tion.jda.api.MessageBuilder
@@ -12,6 +13,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter
 import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
+import java.awt.Color
 import java.sql.Connection
 
 lateinit var jda: JDA
@@ -26,15 +28,13 @@ fun main(args: Array<String>) {
         SchemaUtils.create(Debates, Categories, Arguments)
     }
 
-    val dotenv = dotenv()
-
     jda = JDABuilder
-        .createDefault(dotenv["TOKEN"])
+        .createDefault(dotenv()["TOKEN"])
         .addEventListeners(Bot())
         .build()
 }
 
-private const val commandPrefix = "f!"
+private val commandPrefix = dotenv()["KEYWORD"]
 
 class Bot : ListenerAdapter() {
     override fun onMessageReceived(event: MessageReceivedEvent) {
@@ -83,8 +83,8 @@ class AWonderfulBot : CliktCommand(name = commandPrefix) {
 }
 
 class Start(val event: MessageReceivedEvent?) : CliktCommand(help = "Initializes a debate") {
-    val name by argument()
-    val msgStart: String? by argument(help = "Start of the message").optional()
+    val name by argument(help = "Debate name")
+    val msgStart: String? by argument(help = "Starting message url").optional()
 
     override fun run() {
         transaction {
@@ -98,8 +98,8 @@ class Start(val event: MessageReceivedEvent?) : CliktCommand(help = "Initializes
 }
 
 class End(val event: MessageReceivedEvent?) : CliktCommand(help = "Ends a debate") {
-    val name by argument()
-    val msgEnd: String? by argument().optional()
+    val name by argument(help = "Name of the debate")
+    val msgEnd: String? by argument(help = "Ending message").optional()
 
     override fun run() {
         transaction {
@@ -187,9 +187,15 @@ class List(val event: MessageReceivedEvent) : CliktCommand() {
     override fun run() {
         event.message.channel.sendTyping().queue()
         val allDebates = transaction {
-            Debate.all().map { it.name }
+            Debate.all().map { "**" + it.id.toString() + "**   " + it.name }
         }
-        val myEmbed = MessageBuilder("Discussions :\n").append(allDebates.joinToString(separator = "\n")).build()
+
+        val myEmbed = EmbedBuilder()
+                .addField("", allDebates.joinToString(separator = "\n"), false)
+                .setColor(Color.MAGENTA)
+                .setTitle("Discussions")
+                .setDescription("Every discussion stored")
+                .build()
 
         event.message.channel.sendMessage(myEmbed).queue()
     }
@@ -205,9 +211,11 @@ class Display(val event: MessageReceivedEvent) : CliktCommand() {
             }
             val debate = debates.first()
             event.message.channel.sendMessage(
-                debate.name + "\n" +
-                        "Categories : \n" +
-                        debate.categories.map { it.name }.joinToString(separator = "\n")
+                EmbedBuilder()
+                    .setTitle(debate.name)
+                    .addField("Categories", debate.categories.map { "**" + it.id + "**   " + it.name }.joinToString(separator = "/n" ), false)
+                    .setColor(Color.ORANGE)
+                    .build()
             ).queue()
         }
     }
