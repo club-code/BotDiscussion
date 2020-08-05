@@ -1,6 +1,8 @@
 import com.github.ajalt.clikt.core.*
 import com.github.ajalt.clikt.parameters.arguments.argument
 import com.github.ajalt.clikt.parameters.arguments.optional
+import com.github.ajalt.clikt.parameters.options.flag
+import com.github.ajalt.clikt.parameters.options.option
 import io.github.cdimascio.dotenv.dotenv
 import net.dv8tion.jda.api.EmbedBuilder
 import net.dv8tion.jda.api.JDA
@@ -15,6 +17,7 @@ import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.transaction
 import java.awt.Color
 import java.sql.Connection
+import java.util.concurrent.TimeUnit
 
 lateinit var jda: JDA
 
@@ -118,9 +121,9 @@ class End(val event: MessageReceivedEvent?) : CliktCommand(help = "Ends a debate
     }
 }
 
-class CategoryCommand(val event: MessageReceivedEvent) : CliktCommand(name = "category") {
-    val debate by argument()
-    val name by argument()
+class CategoryCommand(val event: MessageReceivedEvent) : CliktCommand(name = "category", help = "Create a new topic in a debate") {
+    val debate by argument(help = "Name of the debate")
+    val name by argument(help = "Name of the topic")
 
     override fun run() {
         event.channel.sendTyping().queue()
@@ -136,11 +139,12 @@ class CategoryCommand(val event: MessageReceivedEvent) : CliktCommand(name = "ca
                 }
             }
         }
-        event.channel.sendMessage("Category $name for $debate successfully created").queue()
+        event.channel.sendMessage("Category $name for $debate successfully created").queue { message ->  message.delete().queueAfter(3, TimeUnit.SECONDS)}
+        event.message.delete().queue()
     }
 }
 
-class ArgumentCommand(val event: MessageReceivedEvent) : CliktCommand(name = "argument") {
+class ArgumentCommand(val event: MessageReceivedEvent) : CliktCommand(name = "add") {
     val category by argument()
     val message by argument()
     // reference ? -> lien ou livre etc
@@ -168,6 +172,7 @@ class ArgumentCommand(val event: MessageReceivedEvent) : CliktCommand(name = "ar
                     }
                 }
             }
+            event.channel.sendMessage("Ok, argument added").queue { message -> message.delete().queueAfter(2, TimeUnit.SECONDS) }
             event.message.delete().queue()
         }
     }
@@ -203,20 +208,26 @@ class List(val event: MessageReceivedEvent) : CliktCommand() {
 
 class Display(val event: MessageReceivedEvent) : CliktCommand() {
     val name by argument()
+    val fullDisplay by option("-f", "--full").flag("-s", "--simple", default = false)
 
     override fun run() {
         transaction {
             val debates = Debate.find {
                 Debates.name eq name
             }
-            val debate = debates.first()
-            event.message.channel.sendMessage(
-                EmbedBuilder()
-                    .setTitle(debate.name)
-                    .addField("Categories", debate.categories.map { "**" + it.id + "**   " + it.name }.joinToString(separator = "/n" ), false)
-                    .setColor(Color.ORANGE)
-                    .build()
-            ).queue()
+            if (debates.toList().isNotEmpty()) {    //Sorry for that implementation Al3x <3
+                val debate = debates.first()
+                val displayList = if (! fullDisplay) debate.categories.map { "**" + it.id + "**   " + it.name }
+                                else debate.categories.map { "**" + it.id + "**   " + it.name + "\n" + it.arguments.map { "*" + it.person + "*:  " + it.text  }.joinToString(separator = "\n") }
+                //quite ugly, should be a field by topic
+                event.message.channel.sendMessage(
+                        EmbedBuilder()
+                                .setTitle(debate.name)
+                                .addField("Categories", displayList.joinToString(separator = "\n" ), false)
+                                .setColor(Color.ORANGE)
+                                .build()
+                ).queue()
+            }
         }
     }
 }
